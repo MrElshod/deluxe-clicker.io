@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Clicker Deluxe</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 30px;
+      background: linear-gradient(to right, #e0eafc, #cfdef3);
+    }
+    .tabs button {
+      margin: 5px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    #clickButton {
+      font-size: 24px;
+      padding: 20px 40px;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    #clickButton:active { transform: scale(0.9); }
+    .skin1 { background-color: #4caf50; color: white; }
+    .skin2 { background-color: #2196f3; color: white; }
+    .skin3 { background-color: #ff5722; color: white; }
+    .legendary { box-shadow: 0 0 15px gold; }
+  </style>
+</head>
+<body>
+  <h1 id="title">💥 Clicker Deluxe 💥</h1>
+  <p><span id="langBtn">🌍 Русский / English</span></p>
+  <p><strong id="scoreLabel">Очки:</strong> <span id="score">0</span></p>
+  <div class="tabs">
+    <button onclick="showTab('game')">🎮</button>
+    <button onclick="showTab('shop')">🏪</button>
+    <button onclick="showTab('vip')">💎</button>
+    <button onclick="showTab('skins')">🎨</button>
+    <button onclick="showTab('donate')">💰</button>
+    <button onclick="showTab('bosses')">👹 Боссы</button>
+  </div>
+
+  <div id="game" class="tab-content active">
+    <button id="clickButton" class="skin1">Кликни!</button>
+  </div>
+
+  <div id="shop" class="tab-content">
+    <p><button onclick="buyUpgrade()">+1 за клик — 10</button></p>
+    <p><button onclick="buyAutoClicker()">Автокликер — 50</button></p>
+    <p><button onclick="buyDoubleIncome()">Двойной доход — 100</button></p>
+  </div>
+
+  <div id="vip" class="tab-content">
+    <p><button onclick="buyVIP(1)">VIP 1 — 200</button></p>
+    <p><button onclick="buyVIP(2)">VIP 2 — 500</button></p>
+    <p><button onclick="buyVIP(3)">VIP 3 — 1000</button></p>
+    <p id="vipStatus">Статус: Не VIP</p>
+  </div>
+
+  <div id="skins" class="tab-content">
+    <p>Скины:</p>
+    <p><button onclick="buySkin('skin1', 0)">Зелёный (бесплатно)</button></p>
+    <p><button onclick="buySkin('skin2', 50)">Синий — 50</button></p>
+    <p><button onclick="buySkin('skin3 legendary', 150)">🔥 Оранжевый Легендарный — 150</button></p>
+  </div>
+
+  <div id="donate" class="tab-content">
+    <p><button onclick="donate(100)">+100 очков</button></p>
+    <p><button onclick="donate(500)">+500 очков</button></p>
+  </div>
+
+  <div id="bosses" class="tab-content">
+    <h2 id="bossName">Босс</h2>
+    <img id="bossImage" src="" width="150">
+    <p><strong>HP:</strong> <span id="bossHP">0</span></p>
+    <button onclick="attackBoss()">Атаковать</button>
+  </div>
+
+  <audio id="clickSound" src="https://www.fesliyanstudios.com/play-mp3/387"></audio>
+  <audio id="bossHitSound" src="https://www.fesliyanstudios.com/play-mp3/438"></audio>
+
+  <script>
+    let score = 0;
+    let clickPower = 1;
+    let autoClick = false;
+    let doubleIncome = false;
+    let vipLevel = 0;
+    let language = 'ru';
+
+    const scoreEl = document.getElementById("score");
+    const clickButton = document.getElementById("clickButton");
+    const vipStatus = document.getElementById("vipStatus");
+    const langBtn = document.getElementById("langBtn");
+    const clickSound = document.getElementById("clickSound");
+
+    const dictionary = {
+      ru: {
+        title: "Кликер Deluxe",
+        click: "Кликни!",
+        score: "Очки:",
+        status: "Статус: ",
+        notVip: "Не VIP",
+        vip: level => `VIP ${level}`
+      },
+      en: {
+        title: "Clicker Deluxe",
+        click: "Click!",
+        score: "Score:",
+        status: "Status: ",
+        notVip: "Not VIP",
+        vip: level => `VIP ${level}`
+      }
+    };
+
+    function updateLanguage() {
+      document.getElementById("title").innerText = dictionary[language].title;
+      clickButton.innerText = dictionary[language].click;
+      document.getElementById("scoreLabel").innerText = dictionary[language].score;
+      vipStatus.innerText = dictionary[language].status + (vipLevel ? dictionary[language].vip(vipLevel) : dictionary[language].notVip);
+    }
+
+    langBtn.onclick = () => {
+      language = language === 'ru' ? 'en' : 'ru';
+      updateLanguage();
+    };
+
+    function updateScore() {
+      scoreEl.innerText = score;
+      localStorage.setItem('clickerData', JSON.stringify({ score, clickPower, autoClick, doubleIncome, vipLevel }));
+    }
+
+    function loadProgress() {
+      const data = JSON.parse(localStorage.getItem('clickerData'));
+      if (data) {
+        score = data.score || 0;
+        clickPower = data.clickPower || 1;
+        autoClick = data.autoClick;
+        doubleIncome = data.doubleIncome;
+        vipLevel = data.vipLevel;
+        if (vipLevel) vipStatus.innerText = `VIP ${vipLevel}`;
+        updateScore();
+        if (autoClick) startAutoClicker();
+      }
+    }
+
+    function click() {
+      let earn = clickPower * (doubleIncome ? 2 : 1);
+      score += earn;
+      clickSound.play();
+      updateScore();
+    }
+
+    clickButton.onclick = click;
+
+    function buyUpgrade() {
+      if (score >= 10) {
+        score -= 10;
+        clickPower++;
+        updateScore();
+      }
+    }
+
+    function startAutoClicker() {
+      setInterval(() => {
+        score += (doubleIncome ? 2 : 1);
+        updateScore();
+      }, 1000);
+    }
+
+    function buyAutoClicker() {
+      if (!autoClick && score >= 50) {
+        score -= 50;
+        autoClick = true;
+        startAutoClicker();
+        updateScore();
+      }
+    }
+
+    function buyDoubleIncome() {
+      if (!doubleIncome && score >= 100) {
+        score -= 100;
+        doubleIncome = true;
+        updateScore();
+      }
+    }
+
+    function buyVIP(level) {
+      const cost = [0, 200, 500, 1000][level];
+      if (score >= cost && vipLevel < level) {
+        score -= cost;
+        vipLevel = level;
+        clickPower += level * 2;
+        if (level >= 2) doubleIncome = true;
+        if (level === 3) autoClick = true;
+        updateLanguage();
+        updateScore();
+        if (autoClick) startAutoClicker();
+      }
+    }
+
+    function buySkin(skin, cost) {
+      if (cost === 0 || score >= cost) {
+        if (cost > 0) score -= cost;
+        clickButton.className = skin;
+        updateScore();
+      }
+    }
+
+    function donate(amount) {
+      score += amount;
+      updateScore();
+    }
+
+    function showTab(id) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    // === BOSSES ===
+    const bosses = [
+      { name: "Сабака", hp: 1000, reward: 100, img: "https://cdn-icons-png.flaticon.com/512/616/616408.png" },
+      { name: "Собака-Мутант", hp: 5000, reward: 200, img: "https://cdn-icons-png.flaticon.com/512/616/616408.png" },
+      { name: "Зомби", hp: 10000, reward: 300, img: "https://cdn-icons-png.flaticon.com/512/616/616408.png" },
+      { name: "Робот", hp: 15000, reward: 400, img: "https://cdn-icons-png.flaticon.com/512/616/616408.png" },
+      { name: "Гигант", hp: 20000, reward: 500, img: "https://cdn-icons-png.flaticon.com/512/616/616408.png" },
+      { name: "Огненный демон", hp: 30000, reward: 600 },
+      { name: "Король зомби", hp: 40000, reward: 700 },
+      { name: "Инопланетянин", hp: 50000, reward: 800 },
+      { name: "Титан", hp: 60000, reward: 900 },
+      { name: "Лавовый монстр", hp: 70000, reward: 1000 },
+      { name: "Снежный тролль", hp: 80000, reward: 1100 },
+      { name: "Тень", hp: 90000, reward: 1200 },
+      { name: "Маг", hp: 100000, reward: 1300 },
+      { name: "Некромант", hp: 110000, reward: 1400 },
+      { name: "Киборг", hp: 120000, reward: 1500 },
+      { name: "Клон", hp: 130000, reward: 1600 },
+      { name: "Вирус", hp: 140000, reward: 1700 },
+      { name: "Паразит", hp: 150000, reward: 1800 },
+      { name: "Тьма", hp: 160000, reward: 1900 },
+      { name: "Финальный Босс", hp: 200000, reward: 2500 }
+    ];
+
+    let currentBossIndex = 0;
+    let currentBossHP = bosses[currentBossIndex].hp;
+
+    function updateBossUI() {
+      const boss = bosses[currentBossIndex];
+      document.getElementById("bossName").innerText = "Босс: " + boss.name;
+      document.getElementById("bossImage").src = boss.img || "https://cdn-icons-png.flaticon.com/512/616/616408.png";
+      document.getElementById("bossHP").innerText = currentBossHP;
+    }
+
+    function attackBoss() {
+      const hit = clickPower * (doubleIncome ? 2 : 1);
+      currentBossHP -= hit;
+      document.getElementById("bossHP").innerText = Math.max(0, currentBossHP);
+      document.getElementById("bossImage").style.transform = "scale(0.95)";
+      setTimeout(() => document.getElementById("bossImage").style.transform = "scale(1)", 100);
+      document.getElementById("bossHitSound").play();
+
+      if (currentBossHP <= 0) {
+        alert("Победа! +" + bosses[currentBossIndex].reward + " очков");
+        score += bosses[currentBossIndex].reward;
+        currentBossIndex++;
+        if (currentBossIndex < bosses.length) {
+          currentBossHP = bosses[currentBossIndex].hp;
+          updateBossUI();
+        } else {
+          document.getElementById("bossName").innerText = "Вы победили всех боссов!";
+          document.getElementById("bossImage").style.display = "none";
+          document.querySelector("#bosses button").style.display = "none";
+          document.getElementById("bossHP").innerText = "";
+        }
+        updateScore();
+      }
+    }
+
+    loadProgress();
+    updateLanguage();
+    updateBossUI();
+  </script>
+</body>
+</html>
